@@ -2518,6 +2518,7 @@
   }
 }).call(this);_=this._.noConflict();
 Meteor = {isClient: true, _noYieldsAllowed: function(f) {return f();}};
+Package = {};
 /** start of build/meteor/packages/meteor/debug.js **/
 (function() {
 var suppress = 0;

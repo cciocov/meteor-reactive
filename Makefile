@@ -24,6 +24,7 @@ build/lodash.custom.js: build/meteor-sources.js
 build/meteor-sources.js: $(METEOR_SOURCES)
 	@@echo "Making [$@]..."
 	@@echo "Meteor = {isClient: true, _noYieldsAllowed: function(f) {return f();}};" > $@
+	@@echo "Package = {};" >> $@
 	@@for f in $^; do \
 			echo "/** start of $$f **/" >> $@; \
 			echo "(function() {" >> $@; \
