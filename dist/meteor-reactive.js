@@ -2517,8 +2517,225 @@
     root._ = lodash;
   }
 }).call(this);_=this._.noConflict();
-Meteor = {_noYieldsAllowed: function(f) {return f();}};
+Meteor = {isClient: true, _noYieldsAllowed: function(f) {return f();}};
+/** start of build/meteor/packages/meteor/debug.js **/
+(function() {
+var suppress = 0;
+
+// replacement for console.log. This is a temporary API. We should
+// provide a real logging API soon (possibly just a polyfill for
+// console?)
+//
+// NOTE: this is used on the server to print the warning about
+// having autopublish enabled when you probably meant to turn it
+// off. it's not really the proper use of something called
+// _debug. the intent is for this message to go to the terminal and
+// be very visible. if you change _debug to go someplace else, etc,
+// please fix the autopublish code to do something reasonable.
+//
+Meteor._debug = function (/* arguments */) {
+  if (suppress) {
+    suppress--;
+    return;
+  }
+  if (typeof console !== 'undefined' &&
+      typeof console.log !== 'undefined') {
+    if (arguments.length == 0) { // IE Companion breaks otherwise
+      // IE10 PP4 requires at least one argument
+      console.log('');
+    } else {
+      // IE doesn't have console.log.apply, it's not a real Object.
+      // http://stackoverflow.com/questions/5538972/console-log-apply-not-working-in-ie9
+      // http://patik.com/blog/complete-cross-browser-console-log/
+      if (typeof console.log.apply === "function") {
+        // Most browsers
+
+        // Chrome and Safari only hyperlink URLs to source files in first argument of
+        // console.log, so try to call it with one argument if possible.
+        // Approach taken here: If all arguments are strings, join them on space.
+        // See https://github.com/meteor/meteor/pull/732#issuecomment-13975991
+        var allArgumentsOfTypeString = true;
+        for (var i = 0; i < arguments.length; i++)
+          if (typeof arguments[i] !== "string")
+            allArgumentsOfTypeString = false;
+
+        if (allArgumentsOfTypeString)
+          console.log.apply(console, [Array.prototype.join.call(arguments, " ")]);
+        else
+          console.log.apply(console, arguments);
+
+      } else if (typeof Function.prototype.bind === "function") {
+        // IE9
+        var log = Function.prototype.bind.call(console.log, console);
+        log.apply(console, arguments);
+      } else {
+        // IE8
+        Function.prototype.call.call(console.log, console, Array.prototype.slice.call(arguments));
+      }
+    }
+  }
+};
+
+// Suppress the next 'count' Meteor._debug messsages. Use this to
+// stop tests from spamming the console.
+//
+Meteor._suppress_log = function (count) {
+  suppress += count;
+};
+
+Meteor._supressed_log_expected = function () {
+  return suppress !== 0;
+};
+
+}).call(this);
+/** end of build/meteor/packages/meteor/debug.js **/
+/** start of build/meteor/packages/meteor/setimmediate.js **/
+(function() {
+// Chooses one of three setImmediate implementations:
+//
+// * Native setImmediate (IE 10, Node 0.9+)
+//
+// * postMessage (many browsers)
+//
+// * setTimeout  (fallback)
+//
+// The postMessage implementation is based on
+// https://github.com/NobleJS/setImmediate/tree/1.0.1
+//
+// Don't use `nextTick` for Node since it runs its callbacks before
+// I/O, which is stricter than we're looking for.
+//
+// Not installed as a polyfill, as our public API is `Meteor.defer`.
+// Since we're not trying to be a polyfill, we have some
+// simplifications:
+//
+// If one invocation of a setImmediate callback pauses itself by a
+// call to alert/prompt/showModelDialog, the NobleJS polyfill
+// implementation ensured that no setImmedate callback would run until
+// the first invocation completed.  While correct per the spec, what it
+// would mean for us in practice is that any reactive updates relying
+// on Meteor.defer would be hung in the main window until the modal
+// dialog was dismissed.  Thus we only ensure that a setImmediate
+// function is called in a later event loop.
+//
+// We don't need to support using a string to be eval'ed for the
+// callback, arguments to the function, or clearImmediate.
+
+"use strict";
+
+var global = this;
+
+
+// IE 10, Node >= 9.1
+
+function useSetImmediate() {
+  if (! global.setImmediate)
+    return null;
+  else {
+    var setImmediate = function (fn) {
+      global.setImmediate(fn);
+    };
+    setImmediate.implementation = 'setImmediate';
+    return setImmediate;
+  }
+}
+
+
+// Android 2.3.6, Chrome 26, Firefox 20, IE 8-9, iOS 5.1.1 Safari
+
+function usePostMessage() {
+  // The test against `importScripts` prevents this implementation
+  // from being installed inside a web worker, where
+  // `global.postMessage` means something completely different and
+  // can't be used for this purpose.
+
+  if (!global.postMessage || global.importScripts) {
+    return null;
+  }
+
+  // Avoid synchronous post message implementations.
+
+  var postMessageIsAsynchronous = true;
+  var oldOnMessage = global.onmessage;
+  global.onmessage = function () {
+      postMessageIsAsynchronous = false;
+  };
+  global.postMessage("", "*");
+  global.onmessage = oldOnMessage;
+
+  if (! postMessageIsAsynchronous)
+    return null;
+
+  var funcIndex = 0;
+  var funcs = {};
+
+  // Installs an event handler on `global` for the `message` event: see
+  // * https://developer.mozilla.org/en/DOM/window.postMessage
+  // * http://www.whatwg.org/specs/web-apps/current-work/multipage/comms.html#crossDocumentMessages
+
+  // XXX use Random.id() here?
+  var MESSAGE_PREFIX = "Meteor._setImmediate." + Math.random() + '.';
+
+  function isStringAndStartsWith(string, putativeStart) {
+    return (typeof string === "string" &&
+            string.substring(0, putativeStart.length) === putativeStart);
+  }
+
+  function onGlobalMessage(event) {
+    // This will catch all incoming messages (even from other
+    // windows!), so we need to try reasonably hard to avoid letting
+    // anyone else trick us into firing off. We test the origin is
+    // still this window, and that a (randomly generated)
+    // unpredictable identifying prefix is present.
+    if (event.source === global &&
+        isStringAndStartsWith(event.data, MESSAGE_PREFIX)) {
+      var index = event.data.substring(MESSAGE_PREFIX.length);
+      try {
+        if (funcs[index])
+          funcs[index]();
+      }
+      finally {
+        delete funcs[index];
+      }
+    }
+  }
+
+  if (global.addEventListener) {
+    global.addEventListener("message", onGlobalMessage, false);
+  } else {
+    global.attachEvent("onmessage", onGlobalMessage);
+  }
+
+  var setImmediate = function (fn) {
+    // Make `global` post a message to itself with the handle and
+    // identifying prefix, thus asynchronously invoking our
+    // onGlobalMessage listener above.
+    ++funcIndex;
+    funcs[funcIndex] = fn;
+    global.postMessage(MESSAGE_PREFIX + funcIndex, "*");
+  };
+  setImmediate.implementation = 'postMessage';
+  return setImmediate;
+}
+
+
+function useTimeout() {
+  var setImmediate = function (fn) {
+    global.setTimeout(fn, 0);
+  };
+  setImmediate.implementation = 'setTimeout';
+  return setImmediate;
+}
+
+
+Meteor._setImmediate =
+  useSetImmediate() ||
+  usePostMessage() ||
+  useTimeout();
+}).call(this);
+/** end of build/meteor/packages/meteor/setimmediate.js **/
 /** start of build/meteor/packages/base64/base64.js **/
+(function() {
 // Base 64 encoding
 
 var BASE_64_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -2663,8 +2880,10 @@ Base64.decode = function (str) {
   }
   return arr;
 };
+}).call(this);
 /** end of build/meteor/packages/base64/base64.js **/
 /** start of build/meteor/packages/ejson/ejson.js **/
+(function() {
 /**
  * @namespace
  * @summary Namespace for EJSON functions
@@ -3181,8 +3400,10 @@ EJSON.clone = function (v) {
 // then 'base64' would have to use EJSON.newBinary, and 'ejson' would
 // also have to use 'base64'.)
 EJSON.newBinary = Base64.newBinary;
+}).call(this);
 /** end of build/meteor/packages/ejson/ejson.js **/
 /** start of build/meteor/packages/tracker/tracker.js **/
+(function() {
 /////////////////////////////////////////////////////
 // Package docs at http://docs.meteor.com/#tracker //
 /////////////////////////////////////////////////////
@@ -3802,8 +4023,10 @@ Tracker.afterFlush = function (f) {
   afterFlushCallbacks.push(f);
   requireFlush();
 };
+}).call(this);
 /** end of build/meteor/packages/tracker/tracker.js **/
 /** start of build/meteor/packages/reactive-dict/reactive-dict.js **/
+(function() {
 // XXX come up with a serialization method which canonicalizes object key
 // order, which would allow us to use objects as values for equals.
 var stringify = function (value) {
@@ -3995,8 +4218,10 @@ _.extend(ReactiveDict.prototype, {
     return this.keys;
   }
 });
+}).call(this);
 /** end of build/meteor/packages/reactive-dict/reactive-dict.js **/
 /** start of build/meteor/packages/reactive-var/reactive-var.js **/
+(function() {
 /*
  * ## [new] ReactiveVar(initialValue, [equalsFunc])
  *
@@ -4093,5 +4318,6 @@ ReactiveVar.prototype._numListeners = function() {
     count++;
   return count;
 };
+}).call(this);
 /** end of build/meteor/packages/reactive-var/reactive-var.js **/
 })();

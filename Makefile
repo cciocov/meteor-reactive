@@ -1,5 +1,7 @@
 METEOR_GIT = "git@github.com:meteor/meteor.git"
-METEOR_SOURCES = build/meteor/packages/base64/base64.js \
+METEOR_SOURCES = build/meteor/packages/meteor/debug.js \
+								 build/meteor/packages/meteor/setimmediate.js \
+								 build/meteor/packages/base64/base64.js \
 								 build/meteor/packages/ejson/ejson.js \
 								 build/meteor/packages/tracker/tracker.js \
 								 build/meteor/packages/reactive-dict/reactive-dict.js \
@@ -24,10 +26,12 @@ build/lodash.custom.js: build/meteor-sources.js
 
 build/meteor-sources.js: $(METEOR_SOURCES)
 	@@echo "Making [$@]..."
-	@@echo "Meteor = {_noYieldsAllowed: function(f) {return f();}};" > $@
+	@@echo "Meteor = {isClient: true, _noYieldsAllowed: function(f) {return f();}};" > $@
 	@@for f in $^; do \
 			echo "/** start of $$f **/" >> $@; \
+			echo "(function() {" >> $@; \
 			cat $$f >> $@; \
+			echo "}).call(this);" >> $@; \
 			echo "/** end of $$f **/" >> $@; \
 		done
 

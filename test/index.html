@@ -1,1 +1,8 @@
 <script src="../dist/meteor-reactive.js"></script>
+<script type="text/javascript">
+  var dict = new ReactiveDict();
+
+  Tracker.autorun(function() {
+    console.log('dict.a:', dict.get('a'));
+  });
+</script>
