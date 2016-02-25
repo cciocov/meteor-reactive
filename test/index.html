@@ -1,8 +1,8 @@
 <script src="../dist/meteor-reactive.js"></script>
 <script type="text/javascript">
-  var dict = new ReactiveDict();
+  var dict = new MeteorReactive.ReactiveDict();
 
-  Tracker.autorun(function() {
+  MeteorReactive.Tracker.autorun(function() {
     console.log('dict.a:', dict.get('a'));
   });
 </script>

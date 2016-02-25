@@ -1,4 +1,17 @@
-(function() {
+// if the module has no dependencies, the above pattern can be simplified to
+(function (root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    define([], factory);
+  }
+  else if (typeof module === 'object' && module.exports) {
+    module.exports = factory();
+  }
+  else {
+    root.MeteorReactive = factory();
+  }
+}(this, function () {
+  var _, Base64, EJSON, EJSONTest, Meteor, Package, Tracker, ReactiveDict, ReactiveVar;
+
 /**
  * @license
  * lodash 3.10.1 (Custom Build) <https://lodash.com/>
@@ -2584,7 +2597,7 @@ Meteor._suppress_log = function (count) {
   suppress += count;
 };
 
-Meteor._supressed_log_expected = function () {
+Meteor._suppressed_log_expected = function () {
   return suppress !== 0;
 };
 
@@ -3457,13 +3470,13 @@ var _debugFunc = function () {
            function () {}));
 };
 
-var _maybeSupressMoreLogs = function (messagesLength) {
-  // Sometimes when running tests, we intentionally supress logs on expected
+var _maybeSuppressMoreLogs = function (messagesLength) {
+  // Sometimes when running tests, we intentionally suppress logs on expected
   // printed errors. Since the current implementation of _throwOrLog can log
-  // multiple separate log messages, supress all of them if at least one supress
+  // multiple separate log messages, suppress all of them if at least one suppress
   // is expected as we still want them to count as one.
   if (typeof Meteor !== "undefined") {
-    if (Meteor._supressed_log_expected()) {
+    if (Meteor._suppressed_log_expected()) {
       Meteor._suppress_log(messagesLength - 1);
     }
   }
@@ -3483,7 +3496,7 @@ var _throwOrLog = function (from, e) {
       }
     }
     printArgs.push(e.stack);
-    _maybeSupressMoreLogs(printArgs.length);
+    _maybeSuppressMoreLogs(printArgs.length);
 
     for (var i = 0; i < printArgs.length; i++) {
       _debugFunc()(printArgs[i]);
@@ -4080,6 +4093,7 @@ _.extend(ReactiveDict.prototype, {
     var self = this;
 
     if ((typeof keyOrObject === 'object') && (value === undefined)) {
+      // Called as `dict.set({...})`
       self._setObject(keyOrObject);
       return;
     }
@@ -4089,26 +4103,28 @@ _.extend(ReactiveDict.prototype, {
 
     value = stringify(value);
 
-    var oldSerializedValue = 'undefined';
-    if (_.has(self.keys, key)) oldSerializedValue = self.keys[key];
-    if (value === oldSerializedValue)
-      return;
+    var keyExisted = _.has(self.keys, key);
+    var oldSerializedValue = keyExisted ? self.keys[key] : 'undefined';
+    var isNewValue = (value !== oldSerializedValue);
+
     self.keys[key] = value;
 
-    self.allDeps.changed();
-    changed(self.keyDeps[key]);
-    if (self.keyValueDeps[key]) {
-      changed(self.keyValueDeps[key][oldSerializedValue]);
-      changed(self.keyValueDeps[key][value]);
+    if (isNewValue || !keyExisted) {
+      self.allDeps.changed();
+    }
+
+    if (isNewValue) {
+      changed(self.keyDeps[key]);
+      if (self.keyValueDeps[key]) {
+        changed(self.keyValueDeps[key][oldSerializedValue]);
+        changed(self.keyValueDeps[key][value]);
+      }
     }
   },
 
   setDefault: function (key, value) {
     var self = this;
-    // for now, explicitly check for undefined, since there is no
-    // ReactiveDict.clear().  Later we might have a ReactiveDict.clear(), in which case
-    // we should check if it has the key.
-    if (self.keys[key] === undefined) {
+    if (! _.has(self.keys, key)) {
       self.set(key, value);
     }
   },
@@ -4190,10 +4206,31 @@ _.extend(ReactiveDict.prototype, {
 
     _.each(oldKeys, function(value, key) {
       changed(self.keyDeps[key]);
-      changed(self.keyValueDeps[key][value]);
-      changed(self.keyValueDeps[key]['undefined']);
+      if (self.keyValueDeps[key]) {
+        changed(self.keyValueDeps[key][value]);
+        changed(self.keyValueDeps[key]['undefined']);
+      }
     });
 
+  },
+
+  delete: function(key) {
+    var self = this;
+    var didRemove = false;
+
+    if (_.has(self.keys, key)) {
+      var oldValue = self.keys[key];
+      delete self.keys[key];
+      changed(self.keyDeps[key]);
+      if (self.keyValueDeps[key]) {
+        changed(self.keyValueDeps[key][oldValue]);
+        changed(self.keyValueDeps[key]['undefined']);
+      }
+      self.allDeps.changed();
+      didRemove = true;
+    }
+
+    return didRemove;
   },
 
   _setObject: function (object) {
@@ -4321,4 +4358,9 @@ ReactiveVar.prototype._numListeners = function() {
 };
 }).call(this);
 /** end of build/meteor/packages/reactive-var/reactive-var.js **/
-})();
+  return {
+    ReactiveVar: ReactiveVar,
+    ReactiveDict: ReactiveDict,
+    Tracker: Tracker
+  };
+}));

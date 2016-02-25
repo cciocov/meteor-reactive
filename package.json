@@ -1,0 +1,13 @@
+{
+  "name": "meteor-reactive",
+  "version": "0.0.1",
+  "description": "",
+  "main": "dist/meteor-reactive.js",
+  "homepage": "",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/cciocov/meteor-reactive.git"
+  },
+  "author": "",
+  "license": "MIT"
+}
