@@ -7,11 +7,9 @@ METEOR_SOURCES = build/meteor/packages/meteor/debug.js \
 								 build/meteor/packages/reactive-dict/reactive-dict.js \
 								 build/meteor/packages/reactive-var/reactive-var.js
 
-dist/meteor-reactive.js: build/lodash.custom.js build/meteor-sources.js
+dist/meteor-reactive.js: intro.js build/lodash.custom.js build/meteor-sources.js outro.js
 	@@echo "Making [$@]..."
-	@@cat intro.js > $@
-	@@cat $^ >> $@
-	@@cat outro.js >> $@
+	@@cat $^ > $@
 
 build/lodash.custom.js: build/meteor-sources.js
 	@@echo "Making [$@]..."

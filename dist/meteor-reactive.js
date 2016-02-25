@@ -12,6 +12,9 @@
 }(this, function () {
   var _, Base64, EJSON, EJSONTest, Meteor, Package, Tracker, ReactiveDict, ReactiveVar;
 
+  // don't let lodash think it's in a module loader:
+  var define, module, exports, global, window, self;
+
 /**
  * @license
  * lodash 3.10.1 (Custom Build) <https://lodash.com/>
