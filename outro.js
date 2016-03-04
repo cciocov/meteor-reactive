@@ -1,6 +1,7 @@
-  return {
-    ReactiveVar: ReactiveVar,
-    ReactiveDict: ReactiveDict,
-    Tracker: Tracker
-  };
+    return {
+      ReactiveVar: ReactiveVar,
+      ReactiveDict: ReactiveDict,
+      Tracker: Tracker
+    };
+  }).call(global);
 }));

@@ -1,4 +1,3 @@
-// if the module has no dependencies, the above pattern can be simplified to
 (function (root, factory) {
   if (typeof define === 'function' && define.amd) {
     define([], factory);
@@ -10,21 +9,19 @@
     root.MeteorReactive = factory();
   }
 }(this, function () {
-  var _, Base64, EJSON, EJSONTest, Meteor, Package, Tracker, ReactiveDict, ReactiveVar;
-
-  // don't let lodash think it's in a module loader:
-  var define, module, exports, global, window, self;
-
+  return (function() {
+    var _, Base64, EJSON, EJSONTest, Meteor, Package, Tracker, ReactiveDict,
+        ReactiveVar;
 /**
  * @license
  * lodash 3.10.1 (Custom Build) <https://lodash.com/>
- * Build: `lodash modern include="all,any,each,extend,has,isArguments,isArray,isEmpty,isNaN,map,size,noConflict" iife=";(function(){%output%}).call(this);_" -d -o build/lodash.custom.js`
+ * Build: `lodash modern include="all,any,each,extend,has,isArguments,isArray,isEmpty,isNaN,map,size,noConflict" iife=";(function(){var define, module, exports, global, window, self; 	%output%}).call(this);_" -d -o build/lodash.custom.js`
  * Copyright 2012-2015 The Dojo Foundation <http://dojofoundation.org/>
  * Based on Underscore.js 1.8.3 <http://underscorejs.org/LICENSE>
  * Copyright 2009-2015 Jeremy Ashkenas, DocumentCloud and Investigative Reporters & Editors
  * Available under MIT license <https://lodash.com/license>
  */
-;(function(){
+;(function(){var define, module, exports, global, window, self; 	
   /** Used as a safe reference for `undefined` in pre-ES5 environments. */
   var undefined;
 
@@ -4361,9 +4358,10 @@ ReactiveVar.prototype._numListeners = function() {
 };
 }).call(this);
 /** end of build/meteor/packages/reactive-var/reactive-var.js **/
-  return {
-    ReactiveVar: ReactiveVar,
-    ReactiveDict: ReactiveDict,
-    Tracker: Tracker
-  };
+    return {
+      ReactiveVar: ReactiveVar,
+      ReactiveDict: ReactiveDict,
+      Tracker: Tracker
+    };
+  }).call(global);
 }));

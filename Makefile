@@ -17,7 +17,8 @@ build/lodash.custom.js: build/meteor-sources.js
 	@@echo "Included functions: $(LODASH_FN)"
 	$(eval comma=,)
 	@@lodash modern include=$(subst $(eval) ,$(comma),$(subst _.,,$(LODASH_FN))),noConflict \
-		iife=";(function(){%output%}).call(this);_=this._.noConflict();" -d -o $@
+		iife=";(function(){var define, module, exports, global, window, self; \
+		%output%}).call(this);_=this._.noConflict();" -d -o $@
 
 build/meteor-sources.js: $(METEOR_SOURCES)
 	@@echo "Making [$@]..."
